@@ -1,0 +1,172 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- AUTH & TENANCY ---
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  password      String
+  name          String?
+  memberships   Membership[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Business {
+  id            String       @id @default(cuid())
+  name          String
+  currency      String       @default("USD")
+  memberships   Membership[]
+  accounts      Account[]
+  journals      JournalEntry[]
+  products      Product[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Membership {
+  id            String    @id @default(cuid())
+  role          String    // OWNER, ACCOUNTANT, VIEWER
+  userId        String
+  businessId    String
+  user          User      @relation(fields: [userId], references: [id])
+  business      Business  @relation(fields: [businessId], references: [id])
+
+  @@unique([userId, businessId])
+}
+
+// --- DOUBLE ENTRY ACCOUNTING ---
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  INCOME
+  EXPENSE
+}
+
+model Account {
+  id            String        @id @default(cuid())
+  code          String
+  name          String
+  type          AccountType
+  description   String?
+  
+  businessId    String
+  business      Business      @relation(fields: [businessId], references: [id])
+  
+  parentId      String?
+  parent        Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  children      Account[]     @relation("AccountTree")
+  
+  journalLines  JournalLine[]
+  
+  // For Bank Accounts specifically
+  bankDetails   BankDetails?
+
+  @@unique([businessId, code])
+}
+
+model BankDetails {
+  id            String    @id @default(cuid())
+  accountNumber String
+  bankName      String
+  accountId     String    @unique
+  account       Account   @relation(fields: [accountId], references: [id])
+}
+
+model JournalEntry {
+  id            String        @id @default(cuid())
+  date          DateTime      @default(now())
+  description   String
+  reference     String?       // e.g. Invoice #101
+  status        String        @default("POSTED") // DRAFT, POSTED
+  
+  businessId    String
+  business      Business      @relation(fields: [businessId], references: [id])
+  
+  lines         JournalLine[]
+  
+  // Link to a source document if needed
+  transactionId String?       @unique // Link to legacy simple transaction if migrating, or NULL
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model JournalLine {
+  id            String       @id @default(cuid())
+  journalId     String
+  journal       JournalEntry @relation(fields: [journalId], references: [id], onDelete: Cascade)
+  
+  accountId     String
+  account       Account      @relation(fields: [accountId], references: [id])
+  
+  description   String?
+  debit         Float        @default(0)
+  credit        Float        @default(0)
+}
+
+// --- INVENTORY ---
+
+model Product {
+  id            String    @id @default(cuid())
+  sku           String
+  name          String
+  description   String?
+  price         Float
+  cost          Float     @default(0)
+  quantity      Int       @default(0)
+  
+  businessId    String
+  business      Business  @relation(fields: [businessId], references: [id])
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  @@unique([businessId, sku])
+}
+
+model Transaction {
+  id            String      @id @default(cuid())
+  description   String
+  amount        Float
+  status        String      // e.g., PENDING, PAID, BANK_PAYMENT
+  categoryId    String?
+  category      Category?   @relation(fields: [categoryId], references: [id])
+  businessId    String
+  business      Business    @relation(fields: [businessId], references: [id])
+  bankAccountId String?
+  bankAccount   Account?    @relation(fields: [bankAccountId], references: [id])
+  attachment    String?     // file path or URL
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Category {
+  id            String        @id @default(cuid())
+  name          String
+  transactions  Transaction[]
+  businessId    String
+  business      Business      @relation(fields: [businessId], references: [id])
+}
+
+model Personnel {
+  id            String      @id @default(cuid())
+  name          String
+  email         String?
+  role          String
+  image         String?     // path or URL
+  businessId    String
+  business      Business    @relation(fields: [businessId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+

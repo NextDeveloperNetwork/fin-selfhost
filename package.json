@@ -9,7 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6",
+    "bcryptjs": "^3.0.3",
     "next": "16.0.7",
+    "next-auth": "^4.24.13",
     "react": "19.2.0",
     "react-dom": "19.2.0"
   },
@@ -19,6 +23,12 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.0.7",
+    "localtunnel": "^2.0.2",
+    "prisma": "^5.22.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
   }
 }
